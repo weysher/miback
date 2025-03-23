@@ -8,7 +8,7 @@ app.use(express.json()); // Para procesar JSON en las solicitudes
 // Simulación de pedidos en memoria
 let pedidos = [
     {
-        "nombre": "Pizza",
+        "nombre": "Manda tu gaaaa",
         "cantidad": 2,
         "precio": 10.99
     }
