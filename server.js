@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const { Pool } = require("pg");
+const WebSocket = require("ws");
 require("dotenv").config();
 
 const app = express();
@@ -22,6 +23,17 @@ const pool = new Pool({
     },
 });
 
+// Crear un servidor WebSocket
+const wss = new WebSocket.Server({ noServer: true });
+
+// Mantener track de los clientes conectados
+wss.on("connection", (ws) => {
+    console.log("Nuevo cliente conectado");
+    ws.on("close", () => {
+        console.log("Cliente desconectado");
+    });
+});
+
 // Ruta para obtener todos los pedidos
 app.get("/pedidos", async (req, res) => {
     try {
@@ -41,6 +53,14 @@ app.post("/pedidos", async (req, res) => {
             "INSERT INTO pedidos (nombre, cantidad, precio) VALUES ($1, $2, $3) RETURNING *",
             [nombre, cantidad, precio]
         );
+
+        // Enviar el nuevo pedido a todos los clientes conectados
+        wss.clients.forEach((client) => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify(result.rows[0]));
+            }
+        });
+
         res.status(201).json({ mensaje: "Pedido agregado", pedido: result.rows[0] });
     } catch (error) {
         console.error("Error al agregar pedido:", error);
@@ -62,6 +82,13 @@ app.delete("/pedidos/:id", async (req, res) => {
 
 // Iniciar servidor en el puerto 3001 o el de Railway
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, "0.0.0.0", () => {
+app.server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Servidor corriendo en http://localhost:${PORT}`);
+});
+
+// Configuración del WebSocket
+app.server.on("upgrade", (request, socket, head) => {
+    wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit("connection", ws, request);
+    });
 });
