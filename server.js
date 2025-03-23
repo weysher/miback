@@ -4,11 +4,20 @@ const { Pool } = require("pg");
 require("dotenv").config(); // Cargar las variables del .env
 
 const app = express();
-app.use(cors({
-    origin: "https://mi-akczipcmt-cesarjulian23gmailcoms-projects.vercel.app", // Reemplázalo con la URL de tu frontend en Vercel
-    methods: "GET,POST,DELETE",
-    allowedHeaders: "Content-Type"
-}));
+
+app.use(cors());
+
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*"); // Permite todas las solicitudes
+    res.header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    
+    if (req.method === "OPTIONS") {
+        return res.sendStatus(204);
+    }
+    
+    next();
+});
 
 app.use(express.json()); // Para procesar JSON en las solicitudes
 
