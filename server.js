@@ -38,6 +38,7 @@ app.delete("/pedidos/:index", (req, res) => {
 });
 
 // Iniciar servidor en el puerto 5000
-app.listen(3001, () => {
-    console.log("Servidor corriendo en http://localhost:3001");
+const PORT = process.env.PORT || 3001; // Usa el puerto de Railway o el 3001 por defecto
+app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
