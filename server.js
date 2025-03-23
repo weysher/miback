@@ -2,31 +2,29 @@ const express = require("express");
 const cors = require("cors");
 const { Pool } = require("pg");
 const WebSocket = require("ws");
+const path = require("path");  // <--- Importa path
 require("dotenv").config();
 
 const app = express();
 
-// Permitir CORS para todas las fuentes
+// Configuración de CORS y JSON
 app.use(cors({
-    origin: "*", // Esto permite solicitudes desde cualquier origen
+    origin: "*",
     methods: "GET,POST,DELETE,OPTIONS",
     allowedHeaders: "Content-Type, Authorization",
 }));
-
-app.use(express.json()); // Para procesar JSON en las solicitudes
+app.use(express.json());
 
 // Conexión a PostgreSQL
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
-        rejectUnauthorized: false, // Importante para Railway
+        rejectUnauthorized: false,
     },
 });
 
-// Crear un servidor WebSocket
+// Configuración de WebSocket
 const wss = new WebSocket.Server({ noServer: true });
-
-// Mantener track de los clientes conectados
 wss.on("connection", (ws) => {
     console.log("Nuevo cliente conectado");
     ws.on("close", () => {
@@ -34,7 +32,7 @@ wss.on("connection", (ws) => {
     });
 });
 
-// Ruta para obtener todos los pedidos
+// Rutas API (definir primero)
 app.get("/pedidos", async (req, res) => {
     try {
         const result = await pool.query("SELECT * FROM pedidos");
@@ -45,22 +43,20 @@ app.get("/pedidos", async (req, res) => {
     }
 });
 
-// Ruta para agregar un nuevo pedido
 app.post("/pedidos", async (req, res) => {
     try {
+        console.log("POST /pedidos recibido"); // Para depuración
         const { nombre, cantidad, precio } = req.body;
         const result = await pool.query(
             "INSERT INTO pedidos (nombre, cantidad, precio) VALUES ($1, $2, $3) RETURNING *",
             [nombre, cantidad, precio]
         );
-
-        // Enviar el nuevo pedido a todos los clientes conectados
+        // Enviar a los clientes WebSocket
         wss.clients.forEach((client) => {
             if (client.readyState === WebSocket.OPEN) {
                 client.send(JSON.stringify(result.rows[0]));
             }
         });
-
         res.status(201).json({ mensaje: "Pedido agregado", pedido: result.rows[0] });
     } catch (error) {
         console.error("Error al agregar pedido:", error);
@@ -68,7 +64,6 @@ app.post("/pedidos", async (req, res) => {
     }
 });
 
-// Ruta para borrar un pedido por ID
 app.delete("/pedidos/:id", async (req, res) => {
     try {
         const { id } = req.params;
@@ -80,7 +75,7 @@ app.delete("/pedidos/:id", async (req, res) => {
     }
 });
 
-// Iniciar servidor en el puerto 3001 o el de Railway
+// Iniciar el servidor
 const PORT = process.env.PORT || 3001;
 app.server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Servidor corriendo en http://localhost:${PORT}`);
@@ -91,4 +86,10 @@ app.server.on("upgrade", (request, socket, head) => {
     wss.handleUpgrade(request, socket, head, (ws) => {
         wss.emit("connection", ws, request);
     });
+});
+
+// Rutas para servir archivos estáticos (esto va al final)
+app.use(express.static("public"));
+app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname, "public", "index.html"));
 });
