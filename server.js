@@ -4,6 +4,10 @@ const { Pool } = require("pg");
 const WebSocket = require("ws");
 const path = require("path");  // <--- Importa path
 require("dotenv").config();
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
+const SECRET_KEY = process.env.SECRET_KEY || "mi_clave_secreta_muy_segura";
+
 
 const app = express();
 
@@ -87,6 +91,42 @@ app.server.on("upgrade", (request, socket, head) => {
         wss.emit("connection", ws, request);
     });
 });
+
+app.post("/admin/login", async (req, res) => {
+    const { username, password } = req.body;
+  
+    try {
+      // Busca el administrador en la tabla admins
+      const result = await pool.query("SELECT * FROM admins WHERE username = $1", [username]);
+      
+      if (result.rows.length === 0) {
+        // Si no existe el usuario, responde con error
+        return res.status(401).json({ error: "Credenciales inválidas" });
+      }
+      
+      const admin = result.rows[0];
+      
+      // Compara la contraseña enviada con la hasheada almacenada
+      const isValid = await bcrypt.compare(password, admin.password);
+      if (!isValid) {
+        return res.status(401).json({ error: "Credenciales inválidas" });
+      }
+      
+      // Si es válido, genera un token JWT
+      const token = jwt.sign(
+        { id: admin.id, username: admin.username },
+        SECRET_KEY,
+        { expiresIn: "1h" }  // El token expira en 1 hora (ajusta según sea necesario)
+      );
+      
+      // Devuelve el token al cliente
+      res.json({ token });
+    } catch (error) {
+      console.error("Error al iniciar sesión:", error);
+      res.status(500).json({ error: "Error al iniciar sesión" });
+    }
+  });
+
 
 // Rutas para servir archivos estáticos (esto va al final)
 app.use(express.static("public"));
