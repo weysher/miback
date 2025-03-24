@@ -4,12 +4,13 @@ const { Pool } = require("pg");
 const WebSocket = require("ws");
 const path = require("path");  // <--- Importa path
 require("dotenv").config();
+
+const app = express();
+
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const SECRET_KEY = process.env.SECRET_KEY || "mi_clave_secreta_muy_segura";
 
-
-const app = express();
 
 // Configuración de CORS y JSON
 app.use(cors({
@@ -91,6 +92,20 @@ app.server.on("upgrade", (request, socket, head) => {
         wss.emit("connection", ws, request);
     });
 });
+
+app.options("/admin/login", cors({
+    origin: "*",
+    methods: "GET,POST,DELETE,OPTIONS",
+    allowedHeaders: "Content-Type, Authorization",
+}));
+
+app.options("/admin/login", (req, res) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    return res.sendStatus(204);
+  });
+  
 
 app.post("/admin/login", async (req, res) => {
     const { username, password } = req.body;
